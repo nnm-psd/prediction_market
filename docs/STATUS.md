@@ -9,6 +9,8 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 - Page ([index.html](../index.html), [app.js](../app.js), [style.css](../style.css)): filters (price horizon, category, minimum volume), summary tiles, calibration chart and table, scores by horizon and by category, biggest surprises, explanation of every statistic and the method's limits. Basic design on purpose, to be improved later.
 - Added 2026-11-07: accuracy by volume and by quarter; return from buying yes or no in each price group after Kalshi's fee (0.07 × p × (1 − p)), with event-clustered intervals; a weather benchmark ([scripts/weather.py](../scripts/weather.py), data/weather.json); a "How this compares" section (vs. brier.fyi and exchange accuracy pages).
 - Weather benchmark: 7 US cities (NY, Chicago, Miami, Austin, Denver, LA, Philadelphia) at their NWS settlement stations. Model = Open-Meteo forecast high issued the day before + normal error with the city's mean and spread over the previous 90 days (≥ 30 needed, earlier days only). The bracket rule reproduces Kalshi's result on all 42,182 settled temperature markets. Market price is the 1-day read (about midnight local before the day). Tested on synthetic data only, because the backfill hasn't yet stored weather prices.
+- Added 2026-11-07: index benchmark ([scripts/ranges.py](../scripts/ranges.py), data/ranges.json). S&P 500 and Nasdaq-100 close markets vs. a lognormal model: last close known at the read time (midnight New York, ≥ 1 day before close), volatility of the previous 60 daily returns, no drift, trading days to settlement. Strike rule matched Kalshi's result on all 44 sampled markets. Bitcoin and Ether markets were planned too, but every sampled one opens less than a day before close, so none has a 1-day price; dropped.
+- Polymarket comparison: not built. Polymarket's API fails here at the connection (TLS error, probably blocked locally), and a DNS workaround was refused by the tool permissions. Needs the user's decision (see Next steps).
 - Statistics ([stats.js](../stats.js)) with self-check [test/stats.test.mjs](../test/stats.test.mjs), which passes: Brier, log loss, Wilson intervals, binned calibration, Murphy decomposition, ECE, Spiegelhalter z test, bootstrap that resamples whole events.
 - Data ([scripts/fetch_data.py](../scripts/fetch_data.py)): Kalshi public API, standard library only. The daily workflow [.github/workflows/data.yml](../.github/workflows/data.yml) only runs once the project is pushed to GitHub.
 - Checked in Chromium at 1280 px (light) and 375 px (dark): no console errors, no horizontal page scroll, chart tooltip works.
@@ -32,8 +34,9 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 1. Create the GitHub repository (for example `nnm-psd/prediction_market`), push, turn on Pages (main branch, root), then run the data workflow once by hand (`workflow_dispatch`).
 2. Check the size of `data/markets.json` after the backfill. If it grows past a few MB, drop titles into a separate file or raise `MIN_VOLUME`.
 3. Candidate features (pick before building):
-   - Polymarket as a second source, to compare exchanges on the same events
-   - more outside benchmarks: crypto/index range markets vs. a model built from options or realised volatility; economic releases vs. consensus or nowcasts
+   - Polymarket as a second source, to compare exchanges on the same events (blocked: needs access to Polymarket's API, see above)
+   - economic releases vs. consensus or nowcasts
+   - speed of reaction to news (hourly candles), bias direction chart, "you vs. the market" quiz, data download
    - event titles for context in the surprises table
 4. Design pass and quality skills from CLAUDE.md before launch: `frontend-design`, `web-design-guidelines`, `accessibility`, `web-quality-audit`.
 

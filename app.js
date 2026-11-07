@@ -145,41 +145,42 @@ function drawChart(cal) {
   });
 }
 
-// Outside benchmark: the same temperature markets priced by a weather forecast. Not affected by the filters.
-async function renderWeather() {
-  const w = await fetch("data/weather.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+// Outside benchmarks: the same markets priced by a model that doesn't come from traders. Not affected by the filters.
+// id: element prefix; group: column to break down by (and its heading); model: name of the model; what: what the markets are.
+async function renderBenchmark(file, id, [group, heading], model, what) {
+  const w = await fetch(file).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const wc = w && Object.fromEntries(w.columns.map((c, i) => [c, i]));
   const all = w ? w.rows : [];
   if (all.length < 20) {
-    $("weather-tiles").innerHTML = "<p>Not enough temperature markets with prices yet.</p>";
+    $(`${id}-tiles`).innerHTML = `<p>Not enough ${what} with prices yet.</p>`;
     return;
   }
   const score = (rs) => {
     const y = rs.map((r) => r[wc.yes]), mk = rs.map((r) => r[wc.market]), md = rs.map((r) => r[wc.model]);
     const avg = mk.map((x, i) => (x + md[i]) / 2), base = mean(y), unc = base * (1 - base);
-    return [["Market price", mk], ["Weather model", md], ["Average of both", avg]].map(([l, p]) => {
+    return [["Market price", mk], [model, md], ["Average of both", avg]].map(([l, p]) => {
       const b = brier(p, y);
-      return { l, b, skill: 1 - b / unc, ece: decompose(p, y).ece };
+      return { l, b, skill: 1 - b / unc };
     });
   };
-  const ev = all.map((r) => r[wc.event]);
   const diff = all.map((r) => (r[wc.model] - r[wc.yes]) ** 2 - (r[wc.market] - r[wc.yes]) ** 2);
-  const [lo, hi] = clusterMeanCI(diff, ev), d = mean(diff);
-  const winner = lo > 0 ? "the market is more accurate" : hi < 0 ? "the weather model is more accurate" : "no clear winner";
-  const days = new Set(all.map((r) => r[wc.city] + r[wc.date])).size;
-  $("weather-tiles").innerHTML = [
-    [all.length.toLocaleString(), `temperature markets over ${days.toLocaleString()} city-days`],
+  const [lo, hi] = clusterMeanCI(diff, all.map((r) => r[wc.event])), d = mean(diff);
+  const winner = lo > 0 ? "the market is more accurate" : hi < 0 ? `the ${model.toLowerCase()} is more accurate` : "no clear winner";
+  const events = new Set(all.map((r) => r[wc.event])).size;
+  $(`${id}-tiles`).innerHTML = [
+    [all.length.toLocaleString(), `${what} in ${events.toLocaleString()} events`],
     ...score(all).map((t) => [f3(t.b), `Brier: ${t.l.toLowerCase()}`]),
     [`${d >= 0 ? "+" : ""}${f3(d)}`, `model minus market Brier (95%: ${f3(lo)} to ${f3(hi)}): ${winner}`],
   ].map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("");
-  const cities = [...new Set(all.map((r) => r[wc.city]))].sort();
-  table($("weather-cities"), ["City", "Markets", "Market Brier", "Model Brier", "Average Brier", "Market skill", "Model skill"],
-    cities.map((c) => [c, all.filter((r) => r[wc.city] === c)]).filter(([, rs]) => rs.length >= 20).map(([c, rs]) => {
+  const keys = [...new Set(all.map((r) => r[wc[group]]))].sort();
+  table($(`${id}-groups`), [heading, "Markets", "Market Brier", "Model Brier", "Average Brier", "Market skill", "Model skill"],
+    keys.map((k) => [k, all.filter((r) => r[wc[group]] === k)]).filter(([, rs]) => rs.length >= 20).map(([k, rs]) => {
       const [m, md, av] = score(rs);
-      return [td(esc(c)), td(rs.length.toLocaleString()), td(f3(m.b)), td(f3(md.b)), td(f3(av.b)), td(m.skill.toFixed(2)), td(md.skill.toFixed(2))];
+      return [td(esc(k)), td(rs.length.toLocaleString()), td(f3(m.b)), td(f3(md.b)), td(f3(av.b)), td(m.skill.toFixed(2)), td(md.skill.toFixed(2))];
     }));
 }
 
 ["horizon", "category", "volume"].forEach((id) => $(id).addEventListener("change", render));
 render();
-renderWeather();
+renderBenchmark("data/weather.json", "weather", ["city", "City"], "Weather model", "temperature markets");
+renderBenchmark("data/ranges.json", "ranges", ["underlying", "Index"], "Volatility model", "index markets");

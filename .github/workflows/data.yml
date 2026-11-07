@@ -19,6 +19,7 @@ jobs:
           python-version: "3.12"
       - run: python scripts/fetch_data.py
       - run: python scripts/weather.py
+      - run: python scripts/ranges.py
       - run: |
           git config user.name "data-bot"
           git config user.email "data-bot@users.noreply.github.com"

@@ -88,7 +88,18 @@
       previous 90 days. Both are compared with the official high the market settled on, using the market price at about midnight before the day.
       These markets are all ≥ 10k contracts; the filters above don't apply here.</p>
     <section aria-label="Weather summary" class="tiles" id="weather-tiles"></section>
-    <div class="scroll"><table id="weather-cities"></table></div>
+    <div class="scroll"><table id="weather-groups"></table></div>
+  </section>
+
+  <section>
+    <h2>Market vs. a volatility model</h2>
+    <p class="muted">A second outside check, on Kalshi's markets for where the S&amp;P 500 and Nasdaq-100 will close.
+      The model starts from the last close before the market price was read and assumes the index moves as much as it did
+      over the previous 60 trading days (a lognormal spread with no drift). It ignores news and the fat tails real markets have,
+      so the market should beat it; the question is by how much. Kalshi's Bitcoin and Ether price markets open less than a day before they close,
+      so they have no 1-day price and aren't covered.</p>
+    <section aria-label="Index summary" class="tiles" id="ranges-tiles"></section>
+    <div class="scroll"><table id="ranges-groups"></table></div>
   </section>
 
   <section>
@@ -109,7 +120,7 @@
       <li>Skill is measured against simply guessing how often "yes" happens, not just against a coin flip.</li>
       <li>The same markets are scored at 1, 7 and 30 days, by volume and over time.</li>
       <li>Returns after fees show whether a gap could actually be traded.</li>
-      <li>An outside benchmark (a weather forecast) checks the market against a probability that doesn't come from traders.</li>
+      <li>Outside benchmarks (a weather forecast and a volatility model) check the market against probabilities that don't come from traders.</li>
     </ul>
   </section>
 
