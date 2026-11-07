@@ -27,9 +27,9 @@
     </label>
     <label>Minimum volume
       <select id="volume">
-        <option value="0">Any (≥ 100k)</option>
+        <option value="0">Any (≥ 10k, sports ≥ 100k)</option>
+        <option value="100000">≥ 100k contracts</option>
         <option value="1000000">≥ 1M contracts</option>
-        <option value="10000000">≥ 10M contracts</option>
       </select>
     </label>
   </section>
@@ -83,7 +83,7 @@
     </dl>
     <h2>Method and limits</h2>
     <ul>
-      <li>Source: Kalshi's public API, settled binary markets closing since January 2025, with at least 100,000 contracts traded and open at least a day. Updated daily.</li>
+      <li>Source: Kalshi's public API, settled binary markets closing since January 2025, open at least a day, with at least 10,000 contracts traded (100,000 for sports). Updated daily.</li>
       <li>The price is the mid of the best bid and ask on the daily candle ending at least N days before close, or the last trade if the spread is wider than 10¢. Daily candles make "1 day" anywhere from 1 to 2 days.</li>
       <li>Markets in one event (say, each candidate in an election) are not independent: exactly one wins. The bootstrap handles this; the per-group intervals and the z test do not.</li>
       <li>Kalshi lists many sports and crypto markets, so they dominate "All". To keep the data small, only a fixed 1-in-10 sample of sports events is kept (whole events, picked by ticker, not by outcome). Filter by category to compare like with like.</li>

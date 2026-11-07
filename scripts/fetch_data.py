@@ -18,14 +18,14 @@ from pathlib import Path
 API = "https://api.elections.kalshi.com/trade-api/v2"
 OUT = Path(__file__).resolve().parent.parent / "data" / "markets.json"
 HORIZONS = [1, 7, 30]  # days before close at which the price is read
-MIN_VOLUME = 100_000  # contracts traded; thinner markets are mostly noise
+MIN_VOLUME = 10_000  # contracts traded; thinner markets are mostly noise
+SPORTS_MIN_VOLUME = 100_000
 START = "2025-01-01"  # backfill from here
 # ponytail: Kalshi settles ~2,000 qualifying sports markets a day; keep a fixed 1-in-10 sample of
 # sports events so the site's JSON stays loadable. Raise to 1 (keep all) if the file size allows.
 SPORTS_SAMPLE = 10
 MAX_SPREAD = 0.10  # wider than this, use the last trade instead of the bid/ask mid
-# ponytail: skips series that open and close within a day, they have no 1-day-ahead price
-SKIP_FREQ = {"hourly", "fifteen_min", "daily"}
+SKIP_FREQ = {"hourly", "fifteen_min"}  # these never have a price a day before close
 DAY = 86400
 COLUMNS = ["ticker", "event", "category", "close", "yes", "volume"] + [f"p{h}" for h in HORIZONS] + ["title"]
 
@@ -60,10 +60,11 @@ def ts(iso):
 
 
 def qualifies(m, series):
-    if CATEGORY.get(series) == "Sports" and zlib.crc32(m["event_ticker"].encode()) % SPORTS_SAMPLE:
+    sports = CATEGORY.get(series) == "Sports"
+    if sports and zlib.crc32(m["event_ticker"].encode()) % SPORTS_SAMPLE:
         return False
     return (series in KEEP and m["close_time"] >= START and m.get("market_type") == "binary" and m.get("result") in ("yes", "no")
-            and float(m.get("volume_fp") or m.get("volume") or 0) >= MIN_VOLUME
+            and float(m.get("volume_fp") or m.get("volume") or 0) >= (SPORTS_MIN_VOLUME if sports else MIN_VOLUME)
             and ts(m["close_time"]) - ts(m["open_time"]) >= DAY)
 
 
@@ -159,7 +160,7 @@ def main():
     rows = sorted(old["rows"] + rows, key=lambda r: (r[3], r[0]))
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(json.dumps({"updated": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "source": "Kalshi",
-                               "horizons": HORIZONS, "min_volume": MIN_VOLUME, "sports_sample": SPORTS_SAMPLE,
+                               "horizons": HORIZONS, "min_volume": MIN_VOLUME, "sports_min_volume": SPORTS_MIN_VOLUME, "sports_sample": SPORTS_SAMPLE,
                                "columns": COLUMNS, "rows": rows}, separators=(",", ":"), ensure_ascii=False),
                    encoding="utf8")
     print(f"wrote {len(rows)} markets to {OUT}")
