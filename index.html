@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Market Odds Check</title>
+<meta name="description" content="Do prediction market prices match how often things really happen? A calibration check of settled Kalshi markets, with the statistics behind it.">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Do prediction markets know the odds?</h1>
+    <p>A contract that pays $1 if something happens and trades at 30¢ is a market saying "30% likely". If markets are right,
+      things priced at 30% should happen about 30% of the time. This page checks that on every settled
+      <a href="https://kalshi.com">Kalshi</a> market with enough trading, and shows the statistics behind the answer.</p>
+    <p class="muted" id="meta">Loading data…</p>
+  </header>
+
+  <section aria-label="Filters" class="controls">
+    <label>Price read
+      <select id="horizon"></select>
+    </label>
+    <label>Category
+      <select id="category"><option value="">All</option></select>
+    </label>
+    <label>Minimum volume
+      <select id="volume">
+        <option value="0">Any (≥ 100k)</option>
+        <option value="1000000">≥ 1M contracts</option>
+        <option value="10000000">≥ 10M contracts</option>
+      </select>
+    </label>
+  </section>
+
+  <section aria-label="Summary" class="tiles" id="tiles"></section>
+
+  <section>
+    <h2>Price vs. how often it happened</h2>
+    <p class="muted">Each dot groups markets by their price. A perfectly calibrated market sits on the dashed line.
+      Bars are 95% intervals: if a bar crosses the line, the gap could be chance.</p>
+    <figure class="chart">
+      <svg id="chart" role="img" aria-labelledby="chart-title" viewBox="0 0 400 400"></svg>
+      <figcaption id="chart-title" class="sr-only">Calibration chart; the same numbers are in the table below.</figcaption>
+      <div id="tip" class="tip" hidden></div>
+    </figure>
+    <div class="scroll"><table id="cal"></table></div>
+  </section>
+
+  <section>
+    <h2>Does the price get better closer to the end?</h2>
+    <p class="muted">Only markets that have a price at every horizon, so each row scores the same markets.</p>
+    <div class="scroll"><table id="horizons"></table></div>
+  </section>
+
+  <section>
+    <h2>By category</h2>
+    <div class="scroll"><table id="cats"></table></div>
+  </section>
+
+  <section>
+    <h2>Biggest surprises</h2>
+    <p class="muted">Markets with at least 1M contracts traded whose price was furthest from what happened.</p>
+    <div class="scroll"><table id="surprises"></table></div>
+  </section>
+
+  <section class="notes">
+    <h2>How to read the numbers</h2>
+    <dl>
+      <dt>Brier score</dt>
+      <dd>The average of (price − outcome)², where the outcome is 1 or 0. 0 is perfect; always saying 50% scores 0.25. Lower is better.</dd>
+      <dt>Skill vs. base rate</dt>
+      <dd>1 − Brier ÷ the Brier of always forecasting the overall share of "yes" outcomes. 0 means no better than that dumb forecast, 1 is perfect.
+        It shows whether prices carry information, not just whether they're calibrated.</dd>
+      <dt>Calibration error (ECE)</dt>
+      <dd>The average gap, in percentage points, between the price and how often it happened, weighted by how many markets each group has.</dd>
+      <dt>Calibration test</dt>
+      <dd>Spiegelhalter's z test. Its p-value is the chance of a gap this large if prices were exactly right. Below 0.05 means the miscalibration is unlikely to be luck.
+        It treats markets as independent, which overstates certainty (see limits).</dd>
+      <dt>95% intervals</dt>
+      <dd>Per price group: Wilson interval on the observed frequency. For Brier and skill: a bootstrap that resamples whole events, because markets in one event are linked.</dd>
+    </dl>
+    <h2>Method and limits</h2>
+    <ul>
+      <li>Source: Kalshi's public API, settled binary markets closing since January 2025, with at least 100,000 contracts traded and open at least a day. Updated daily.</li>
+      <li>The price is the mid of the best bid and ask on the daily candle ending at least N days before close, or the last trade if the spread is wider than 10¢. Daily candles make "1 day" anywhere from 1 to 2 days.</li>
+      <li>Markets in one event (say, each candidate in an election) are not independent: exactly one wins. The bootstrap handles this; the per-group intervals and the z test do not.</li>
+      <li>Kalshi lists many sports and crypto markets, so they dominate "All". To keep the data small, only a fixed 1-in-10 sample of sports events is kept (whole events, picked by ticker, not by outcome). Filter by category to compare like with like.</li>
+      <li>Trading costs fees and the bid/ask spread, so a gap from the dashed line is not automatically a profitable bet.</li>
+    </ul>
+  </section>
+</main>
+<footer class="muted">Data: Kalshi public API. Not investment advice. Source on GitHub.</footer>
+</body>
+</html>
