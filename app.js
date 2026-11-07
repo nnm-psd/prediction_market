@@ -1,4 +1,4 @@
-import { brier, logLoss, mean, calibration, decompose, spiegelhalter, clusterBootstrap, clusterMeanCI } from "./stats.js";
+import { brier, logLoss, mean, calibration, decompose, spiegelhalter, clusterBootstrap, clusterMeanCI, clusterCI, recalibrate } from "./stats.js";
 
 // Kalshi's taker fee per contract: 0.07 × price × (1 − price), before rounding up to the cent per order.
 const fee = (p) => 0.07 * p * (1 - p);
@@ -43,7 +43,7 @@ function render() {
   const h = +$("horizon").value, rs = pick(selected(), h), s = summary(rs, h);
   if (!s) {
     $("tiles").innerHTML = `<p>Fewer than 20 markets match. Widen the filters.</p>`;
-    ["cal", "horizons", "cats", "surprises", "volumes", "quarters", "profit"].forEach((id) => ($(id).innerHTML = ""));
+    ["cal", "horizons", "cats", "surprises", "volumes", "quarters", "profit", "bias", "momentum"].forEach((id) => ($(id).innerHTML = ""));
     $("chart").innerHTML = "";
     return;
   }
@@ -100,6 +100,35 @@ function render() {
         return [td(`${mean(v) >= 0 ? "+" : ""}${pct(mean(v), 1)}`), td(`${pct(lo, 0)} to ${pct(hi, 0)}`)];
       };
       return [td(`${pct(b.lo)}–${pct(b.hi)}`), td(b.n.toLocaleString()), ...cell(ret(true)), ...cell(ret(false))];
+    }));
+
+  // Bias direction: slope of the recalibration fit, overall and per category, with event-resampled intervals.
+  const slope = (t, ev, reps) => {
+    const b = recalibrate(t.p, t.y).b;
+    const [lo, hi] = clusterCI(ev, (ix) => recalibrate(ix.map((i) => t.p[i]), ix.map((i) => t.y[i])).b, reps);
+    const word = hi < 1 ? "too extreme" : lo > 1 ? "too timid" : "no clear bias";
+    return [td(b.toFixed(2)), td(`${lo.toFixed(2)}–${hi.toFixed(2)}`), td(word)];
+  };
+  const catRows = (c) => pick(selected().filter((r) => r[col.category] === c), h);
+  table($("bias"), ["", "Markets", "Slope", "95% interval", "Prices are"], [
+    [td("All selected"), td(s.n.toLocaleString()), ...slope(s, ev, 200)],
+    ...cats.map((c) => [c, catRows(c)]).map(([c, cr]) => [c, cr, summary(cr, h)]).filter(([, , t]) => t && t.n >= 200) // smaller groups give unstable slopes
+      .map(([c, cr, t]) => [td(esc(c)), td(t.n.toLocaleString()), ...slope(t, cr.map((r) => r[col.event]), 100)]),
+  ]);
+
+  // Momentum: at the same 1-day price, do markets that rose over the last week resolve yes more often than their price says?
+  const both = selected().filter((r) => r[hcol(1)] != null && r[hcol(7)] != null);
+  const moveGroups = [["Rose by more than 5 points", (d) => d > 0.05], ["Moved less than 5 points", (d) => Math.abs(d) <= 0.05],
+    ["Fell by more than 5 points", (d) => d < -0.05]];
+  table($("momentum"), ["Last week (7 days → 1 day before close)", "Markets", "Price 1 day before", "Happened", "Gap (points)", "95% interval"],
+    both.length < 20 ? [] : moveGroups.map(([l, f]) => {
+      const g = both.filter((r) => f(r[hcol(1)] - r[hcol(7)]));
+      if (g.length < 20) return [td(l), td(g.length), td("–"), td("–"), td("–"), td("–")];
+      const gap = g.map((r) => r[col.yes] - r[hcol(1)]);
+      const [lo, hi] = clusterMeanCI(gap, g.map((r) => r[col.event]), 200);
+      const pts = (x) => `${x >= 0 ? "+" : ""}${(x * 100).toFixed(1)}`;
+      return [td(l), td(g.length.toLocaleString()), td(pct(mean(g.map((r) => r[hcol(1)])), 1)), td(pct(mean(g.map((r) => r[col.yes])), 1)),
+        td(pts(mean(gap))), td(`${pts(lo)} to ${pts(hi)}`)];
     }));
 
   const vol = +$("volume").value;
@@ -179,6 +208,55 @@ async function renderBenchmark(file, id, [group, heading], model, what) {
       return [td(esc(k)), td(rs.length.toLocaleString()), td(f3(m.b)), td(f3(md.b)), td(f3(av.b)), td(m.skill.toFixed(2)), td(md.skill.toFixed(2))];
     }));
 }
+
+// Quiz: guess a settled market's probability, then compare with the market price a day before close.
+// Sports titles name no teams (they're in the event name, which isn't stored), so sports are left out.
+const pool = rows.filter((r) => r[hcol(1)] != null && r[col.volume] >= 100000 && r[col.title].includes("?") && r[col.category] !== "Sports");
+const store = { get() { try { return JSON.parse(localStorage.getItem("quiz")) || { n: 0, you: 0, mkt: 0 }; } catch { return { n: 0, you: 0, mkt: 0 }; } },
+  set(v) { try { localStorage.setItem("quiz", JSON.stringify(v)); } catch {} } };
+let current;
+function showScore() {
+  const t = store.get();
+  $("quiz-score").textContent = t.n ? `After ${t.n} question${t.n > 1 ? "s" : ""}: your Brier ${f3(t.you / t.n)}, the market's ${f3(t.mkt / t.n)} (lower is better).` : "";
+}
+function nextQuestion() {
+  current = pool[Math.floor(Math.random() * pool.length)];
+  $("quiz-q").textContent = current[col.title];
+  $("quiz-meta").textContent = `${current[col.category]} · closed ${current[col.close]}`;
+  $("quiz-result").textContent = "";
+  $("quiz-guess").value = 50;
+  $("quiz-value").textContent = "50%";
+  $("quiz-guess").disabled = $("quiz-lock").disabled = false;
+  $("quiz-next").hidden = true;
+}
+if (pool.length) {
+  $("quiz-guess").addEventListener("input", (e) => ($("quiz-value").textContent = `${e.target.value}%`));
+  $("quiz-lock").addEventListener("click", () => {
+    const g = +$("quiz-guess").value / 100, m = current[hcol(1)], y = current[col.yes];
+    const t = store.get(); t.n++; t.you += (g - y) ** 2; t.mkt += (m - y) ** 2; store.set(t);
+    $("quiz-result").textContent = `It ${y ? "happened" : "did not happen"}. You said ${pct(g)}; the market said ${pct(m)} a day before close. ` +
+      ((g - y) ** 2 < (m - y) ** 2 ? "You were closer." : (g - y) ** 2 > (m - y) ** 2 ? "The market was closer." : "A tie.");
+    $("quiz-guess").disabled = $("quiz-lock").disabled = true;
+    $("quiz-next").hidden = false;
+    $("quiz-next").focus();
+    showScore();
+  });
+  $("quiz-next").addEventListener("click", nextQuestion);
+  $("quiz-reset").addEventListener("click", () => { store.set({ n: 0, you: 0, mkt: 0 }); showScore(); });
+  nextQuestion();
+  showScore();
+} else {
+  $("quiz").innerHTML = "<p>Not enough markets with a full question yet.</p>";
+}
+
+// Download: the market rows as CSV, built in the browser from the JSON.
+$("csv").addEventListener("click", () => {
+  const cell = (v) => (v == null ? "" : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v));
+  const csv = [data.columns, ...rows].map((r) => r.map(cell).join(",")).join("\n");
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(new Blob([csv], { type: "text/csv" })), download: "markets.csv" });
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
 ["horizon", "category", "volume"].forEach((id) => $(id).addEventListener("change", render));
 render();

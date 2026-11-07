@@ -81,6 +81,23 @@
   </section>
 
   <section>
+    <h2>Which way are prices biased?</h2>
+    <p class="muted">One number per group: the slope of a line fitted through the calibration chart, on the log-odds scale.
+      A slope of 1 means calibrated. Below 1, prices are too extreme: favourites win less often and long shots more often than priced.
+      Above 1, prices are too timid and should be further from 50%. If the interval includes 1, there's no clear bias. Categories need at least 200 markets.</p>
+    <div class="scroll"><table id="bias"></table></div>
+  </section>
+
+  <section>
+    <h2>Do prices react fast enough?</h2>
+    <p class="muted">If a price takes in news fully, how it got there shouldn't matter: markets that rose over the last week should
+      resolve "yes" exactly as often as their price says, just like markets that fell. A positive gap for risers (and a negative one for fallers) means prices
+      under-react and keep drifting the same way; the opposite means they overshoot. Uses the prices 7 days and 1 day before close.
+      Reaction within hours of news would need hourly prices for every market, which this site doesn't collect.</p>
+    <div class="scroll"><table id="momentum"></table></div>
+  </section>
+
+  <section>
     <h2>Market vs. a weather forecast</h2>
     <p class="muted">An outside check on the market. Kalshi lists daily high-temperature brackets for seven US cities
       (New York, Chicago, Miami, Austin, Denver, Los Angeles, Philadelphia). For each one we also compute a probability from a weather forecast:
@@ -108,6 +125,35 @@
     <div class="scroll"><table id="surprises"></table></div>
   </section>
 
+  <section id="quiz">
+    <h2>You vs. the market</h2>
+    <p class="muted">A random settled market (not sports, whose titles here don't name the teams) with at least 100k contracts traded. Say how likely you think it was, then see what happened
+      and what the market said a day before close. Your running score stays in this browser.</p>
+    <div class="quiz">
+      <p id="quiz-q" class="quiz-q"></p>
+      <p id="quiz-meta" class="muted"></p>
+      <label for="quiz-guess">Your probability: <output id="quiz-value" for="quiz-guess">50%</output></label>
+      <input id="quiz-guess" type="range" min="1" max="99" value="50">
+      <div class="quiz-buttons">
+        <button id="quiz-lock" type="button">Lock in</button>
+        <button id="quiz-next" type="button" hidden>Next market</button>
+      </div>
+      <p id="quiz-result" aria-live="polite"></p>
+      <p class="muted"><span id="quiz-score" aria-live="polite"></span> <button id="quiz-reset" type="button" class="link">Reset score</button></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Download the data</h2>
+    <p>Everything on this page comes from these files, updated daily. Free to reuse; please credit Kalshi as the source of prices and outcomes.</p>
+    <ul>
+      <li><a href="data/markets.json">markets.json</a> or <button id="csv" type="button" class="link">markets.csv</button>: one row per market. Columns: ticker, event, category,
+        close date, yes (1 if it happened), volume (contracts), p1 / p7 / p30 (price 1, 7 and 30 days before close, 0 to 1; empty if not yet listed), title.</li>
+      <li><a href="data/weather.json">weather.json</a>: temperature markets with the weather-model probability, the forecast high and the settled high.</li>
+      <li><a href="data/ranges.json">ranges.json</a>: index markets with the volatility-model probability, the last close used and the settled value.</li>
+    </ul>
+  </section>
+
   <section class="notes">
     <h2>How this compares</h2>
     <p><a href="https://brier.fyi">Brier.fyi</a> (formerly Calibration City) is the broadest tracker: Kalshi, Polymarket, Manifold and Metaculus,
@@ -119,7 +165,7 @@
       <li>Markets in one event are resampled together, so a 20-candidate race doesn't count as 20 independent tests.</li>
       <li>Skill is measured against simply guessing how often "yes" happens, not just against a coin flip.</li>
       <li>The same markets are scored at 1, 7 and 30 days, by volume and over time.</li>
-      <li>Returns after fees show whether a gap could actually be traded.</li>
+      <li>Returns after fees show whether a gap could actually be traded, and the bias and reaction tests say which way prices are off.</li>
       <li>Outside benchmarks (a weather forecast and a volatility model) check the market against probabilities that don't come from traders.</li>
     </ul>
   </section>

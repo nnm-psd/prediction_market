@@ -11,6 +11,13 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 - Weather benchmark: 7 US cities (NY, Chicago, Miami, Austin, Denver, LA, Philadelphia) at their NWS settlement stations. Model = Open-Meteo forecast high issued the day before + normal error with the city's mean and spread over the previous 90 days (≥ 30 needed, earlier days only). The bracket rule reproduces Kalshi's result on all 42,182 settled temperature markets. Market price is the 1-day read (about midnight local before the day). Tested on synthetic data only, because the backfill hasn't yet stored weather prices.
 - Added 2026-11-07: index benchmark ([scripts/ranges.py](../scripts/ranges.py), data/ranges.json). S&P 500 and Nasdaq-100 close markets vs. a lognormal model: last close known at the read time (midnight New York, ≥ 1 day before close), volatility of the previous 60 daily returns, no drift, trading days to settlement. Strike rule matched Kalshi's result on all 44 sampled markets. Bitcoin and Ether markets were planned too, but every sampled one opens less than a day before close, so none has a 1-day price; dropped.
 - Polymarket comparison: not built. Polymarket's API fails here at the connection (TLS error, probably blocked locally), and a DNS workaround was refused by the tool permissions. Needs the user's decision (see Next steps).
+- Added 2026-11-07 (user picked the remaining list, Polymarket skipped):
+  - Bias direction: recalibration slope (logistic fit of outcome on log-odds of price) with event-bootstrap 95% interval, overall and per category with ≥ 200 markets (smaller groups gave unstable slopes).
+  - Reaction speed, from stored prices only: at the 1-day price, gap between outcome rate and price for markets that rose / fell / stayed within 5 points between 7 days and 1 day before close. Hourly reaction to news is not built: it needs hourly candles, about one Kalshi call per market.
+  - "You vs. the market" quiz: random non-sports market with a full question and ≥ 100k volume; running Brier for player vs. market in localStorage. Sports left out because their titles don't name the teams (event titles aren't stored).
+  - Download: links to the three JSON files and a CSV built in the browser.
+  - Buttons use #2468b8 (5.6:1 with white); the series blue was below 4.5:1.
+- Economic releases vs. consensus: not built; consensus forecasts aren't freely available.
 - Statistics ([stats.js](../stats.js)) with self-check [test/stats.test.mjs](../test/stats.test.mjs), which passes: Brier, log loss, Wilson intervals, binned calibration, Murphy decomposition, ECE, Spiegelhalter z test, bootstrap that resamples whole events.
 - Data ([scripts/fetch_data.py](../scripts/fetch_data.py)): Kalshi public API, standard library only. The daily workflow [.github/workflows/data.yml](../.github/workflows/data.yml) only runs once the project is pushed to GitHub.
 - Checked in Chromium at 1280 px (light) and 375 px (dark): no console errors, no horizontal page scroll, chart tooltip works.
@@ -36,7 +43,8 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 3. Candidate features (pick before building):
    - Polymarket as a second source, to compare exchanges on the same events (blocked: needs access to Polymarket's API, see above)
    - economic releases vs. consensus or nowcasts
-   - speed of reaction to news (hourly candles), bias direction chart, "you vs. the market" quiz, data download
+   - hourly reaction to news (needs hourly candles for every market)
+   - store event titles, so sports can join the quiz and the surprises table has context
    - event titles for context in the surprises table
 4. Design pass and quality skills from CLAUDE.md before launch: `frontend-design`, `web-design-guidelines`, `accessibility`, `web-quality-audit`.
 

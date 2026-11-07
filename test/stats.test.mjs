@@ -1,6 +1,6 @@
 // Run: uvx --from nodejs-wheel node test/stats.test.mjs
 import assert from "node:assert/strict";
-import { brier, wilson, calibration, decompose, spiegelhalter, normCdf, mulberry32, clusterBootstrap, clusterMeanCI } from "../stats.js";
+import { brier, wilson, calibration, decompose, spiegelhalter, normCdf, mulberry32, clusterBootstrap, clusterMeanCI, recalibrate } from "../stats.js";
 
 const close = (a, b, tol = 1e-3) => assert.ok(Math.abs(a - b) < tol, `${a} vs ${b}`);
 
@@ -34,5 +34,10 @@ assert.ok(plo < 0 && 0 < phi, `${plo} ${phi}`);
 const g4 = p.map((_, i) => i), dup = profit.flatMap((x) => [x, x, x, x]), gd = g4.flatMap((x) => [x, x, x, x]);
 const [a, b] = clusterMeanCI(dup.slice(0, 20000), gd.slice(0, 20000)), [c, d2] = clusterMeanCI(dup.slice(0, 20000), dup.slice(0, 20000).map((_, i) => i));
 assert.ok(b - a > 1.5 * (d2 - c), "clustered interval should be wider");
+
+// Recalibration slope: 1 for calibrated forecasts, below 1 for the overconfident ones.
+const rc = recalibrate(p, y);
+close(rc.b, 1, 0.06); close(rc.a, 0, 0.05);
+assert.ok(recalibrate(over, y).b < 0.85, `slope ${recalibrate(over, y).b}`);
 
 console.log("stats ok");

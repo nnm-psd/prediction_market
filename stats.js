@@ -64,21 +64,42 @@ export function mulberry32(seed) {
   };
 }
 
-// 95% interval for the mean of v, resampling whole groups (events) rather than single values.
-export function clusterMeanCI(v, groups, reps = 400, seed = 1) {
+// Recalibration: fit P(yes) = 1 / (1 + e^-(a + b·logit(p))) by Newton's method.
+// b = 1 and a = 0 when prices are calibrated; b < 1 means prices are too extreme, b > 1 too timid.
+export function recalibrate(p, y) {
+  const x = p.map((pi) => { const c = Math.min(Math.max(pi, 0.01), 0.99); return Math.log(c / (1 - c)); });
+  let a = 0, b = 1;
+  for (let it = 0; it < 50; it++) {
+    let ga = 0, gb = 0, haa = 0, hab = 0, hbb = 0;
+    x.forEach((xi, i) => {
+      const q = 1 / (1 + Math.exp(-(a + b * xi))), w = q * (1 - q), r = y[i] - q;
+      ga += r; gb += r * xi; haa += w; hab += w * xi; hbb += w * xi * xi;
+    });
+    const det = haa * hbb - hab * hab;
+    if (!det) break;
+    const da = (hbb * ga - hab * gb) / det, db = (haa * gb - hab * ga) / det;
+    a += da; b += db;
+    if (Math.abs(da) + Math.abs(db) < 1e-9) break;
+  }
+  return { a, b };
+}
+
+// 95% interval for stat(indices), resampling whole groups (events) rather than single rows.
+export function clusterCI(groups, stat, reps = 400, seed = 1) {
   const idx = new Map();
   groups.forEach((g, i) => { if (!idx.has(g)) idx.set(g, []); idx.get(g).push(i); });
-  const clusters = [...idx.values()], rand = mulberry32(seed), means = [];
+  const clusters = [...idx.values()], rand = mulberry32(seed), out = [];
   for (let r = 0; r < reps; r++) {
-    let s = 0, n = 0;
-    for (let c = 0; c < clusters.length; c++) {
-      for (const i of clusters[Math.floor(rand() * clusters.length)]) { s += v[i]; n++; }
-    }
-    means.push(s / n);
+    const pick = [];
+    for (let c = 0; c < clusters.length; c++) pick.push(...clusters[Math.floor(rand() * clusters.length)]);
+    out.push(stat(pick));
   }
-  means.sort((a, b) => a - b);
-  return [means[Math.floor(0.025 * (reps - 1))], means[Math.floor(0.975 * (reps - 1))]];
+  out.sort((a, b) => a - b);
+  return [out[Math.floor(0.025 * (reps - 1))], out[Math.floor(0.975 * (reps - 1))]];
 }
+
+export const clusterMeanCI = (v, groups, reps = 400, seed = 1) =>
+  clusterCI(groups, (ix) => ix.reduce((s, i) => s + v[i], 0) / ix.length, reps, seed);
 
 // Markets in one event are linked (exactly one candidate wins), so resample whole events, not markets.
 // Returns 95% intervals for the Brier score and the Brier skill score against always forecasting the base rate.

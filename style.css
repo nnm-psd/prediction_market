@@ -63,3 +63,12 @@ td.title { text-align: left; min-width: 16rem; }
 .notes dd { margin: 0.2rem 0 0; color: var(--ink-2); }
 .notes li { margin-bottom: 0.4rem; }
 .tiles + .scroll { margin-top: 1rem; }
+
+.quiz { background: var(--panel); border-radius: 8px; padding: 1rem; display: grid; gap: 0.5rem; }
+.quiz-q { font-size: 1.15rem; font-weight: 600; margin: 0; }
+.quiz p { margin: 0; }
+.quiz input[type="range"] { width: 100%; min-height: 44px; accent-color: var(--series); }
+.quiz-buttons { display: flex; gap: 0.5rem; }
+button { font: inherit; min-height: 44px; padding: 0 1rem; border-radius: 6px; border: 1px solid #2468b8; background: #2468b8; color: #fff; cursor: pointer; } /* 5.6:1 with white */
+button:disabled { opacity: 0.5; cursor: default; }
+button.link { min-height: 0; padding: 0; border: 0; background: none; color: var(--series); text-decoration: underline; }
