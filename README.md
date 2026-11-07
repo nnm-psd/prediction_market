@@ -1,5 +1,7 @@
 # Market Odds Check
 
+Live at https://nnm-psd.github.io/prediction_market/
+
 Do prediction market prices match how often things really happen? This site takes every settled [Kalshi](https://kalshi.com) market with enough trading, reads its price 1, 7 and 30 days before close, and compares those prices with the outcomes: calibration chart, Brier score, skill against the base rate, calibration error and a calibration test, with confidence intervals. It also breaks accuracy down by volume and over time, shows the return from buying at each price after fees, and checks temperature markets against a weather-forecast probability and S&P 500 / Nasdaq-100 markets against a volatility model. It also tests which way prices are biased and whether they under-react, has a "you vs. the market" quiz, and offers the data as JSON or CSV. A static site with no build step, no backend and no runtime dependencies.
 
 - `index.html`, `app.js`, `style.css`: the page.

@@ -4,13 +4,15 @@ Last updated: 2026-11-07. Read this first when resuming.
 
 ## State
 
-Working first version, tested locally. Local git repository, not yet pushed or deployed.
+Live at https://nnm-psd.github.io/prediction_market/ (GitHub Pages from `main`, repo nnm-psd/prediction_market).
+
+Working and deployed. The full history backfill is in progress (see the 2026-11-07 evening note below); until it lands, the site shows only the 185 markets from 2026-11-04 to 11-07.
 
 - Page ([index.html](../index.html), [app.js](../app.js), [style.css](../style.css)): filters (price horizon, category, minimum volume), summary tiles, calibration chart and table, scores by horizon and by category, biggest surprises, explanation of every statistic and the method's limits. Basic design on purpose, to be improved later.
 - Added 2026-11-07: accuracy by volume and by quarter; return from buying yes or no in each price group after Kalshi's fee (0.07 × p × (1 − p)), with event-clustered intervals; a weather benchmark ([scripts/weather.py](../scripts/weather.py), data/weather.json); a "How this compares" section (vs. brier.fyi and exchange accuracy pages).
 - Weather benchmark: 7 US cities (NY, Chicago, Miami, Austin, Denver, LA, Philadelphia) at their NWS settlement stations. Model = Open-Meteo forecast high issued the day before + normal error with the city's mean and spread over the previous 90 days (≥ 30 needed, earlier days only). The bracket rule reproduces Kalshi's result on all 42,182 settled temperature markets. Market price is the 1-day read (about midnight local before the day). Tested on synthetic data only, because the backfill hasn't yet stored weather prices.
 - Added 2026-11-07: index benchmark ([scripts/ranges.py](../scripts/ranges.py), data/ranges.json). S&P 500 and Nasdaq-100 close markets vs. a lognormal model: last close known at the read time (midnight New York, ≥ 1 day before close), volatility of the previous 60 daily returns, no drift, trading days to settlement. Strike rule matched Kalshi's result on all 44 sampled markets. Bitcoin and Ether markets were planned too, but every sampled one opens less than a day before close, so none has a 1-day price; dropped.
-- Polymarket comparison: not built. Polymarket's API fails here at the connection (TLS error, probably blocked locally), and a DNS workaround was refused by the tool permissions. Needs the user's decision (see Next steps).
+- Polymarket comparison: not built. Polymarket's API fails here at the connection (TLS error, probably blocked locally), and a DNS workaround was refused by the tool permissions. The user chose to skip Polymarket (2026-11-07).
 - Added 2026-11-07 (user picked the remaining list, Polymarket skipped):
   - Bias direction: recalibration slope (logistic fit of outcome on log-odds of price) with event-bootstrap 95% interval, overall and per category with ≥ 200 markets (smaller groups gave unstable slopes).
   - Reaction speed, from stored prices only: at the 1-day price, gap between outcome rate and price for markets that rose / fell / stayed within 5 points between 7 days and 1 day before close. Hourly reaction to news is not built: it needs hourly candles, about one Kalshi call per market.
@@ -39,10 +41,9 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 
 ## Next steps
 
-1. Create the GitHub repository (for example `nnm-psd/prediction_market`), push, turn on Pages (main branch, root), then run the data workflow once by hand (`workflow_dispatch`).
+1. When the backfill finishes: run `scripts/weather.py` and `scripts/ranges.py`, check the results make sense, record the headline numbers here, commit the data and push. If the backfill stopped, rerun `python scripts/fetch_data.py --backfill` and it resumes.
 2. Check the size of `data/markets.json` after the backfill. If it grows past a few MB, drop titles into a separate file or raise `MIN_VOLUME`.
 3. Candidate features (pick before building):
-   - Polymarket as a second source, to compare exchanges on the same events (blocked: needs access to Polymarket's API, see above)
    - economic releases vs. consensus or nowcasts
    - hourly reaction to news (needs hourly candles for every market)
    - store event titles, so sports can join the quiz and the surprises table has context
