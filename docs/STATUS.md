@@ -21,7 +21,8 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 
 - "Real-world probability" is read as the observed frequency of outcomes (calibration). Comparing with outside forecasts (polls, CME FedWatch, bookmakers) is a candidate next step.
 - Source: Kalshi only. Polymarket's API could not be reached from this machine (TLS error), so it is untested; Manifold is play money.
-- Filters: binary markets, volume ≥ 100k contracts, open ≥ 1 day, closed since 2025-01-01, hourly/15-minute/daily series skipped. Sports keeps a fixed 1-in-10 sample of events (crc32 of the event ticker). Kalshi settles about 2,000 sports markets a day above 10k volume; without these cuts the JSON would be far too big to load.
+- Filters: binary markets, open ≥ 1 day, closed since 2025-01-01, hourly and 15-minute series skipped. Volume ≥ 10k contracts, except sports ≥ 100k with a fixed 1-in-10 sample of events (crc32 of the event ticker). Kalshi settles about 2,000 sports markets a day above 10k volume; without these cuts the JSON would be far too big to load.
+- 2026-11-07, at the user's request for richer data in other categories: non-sports threshold lowered from 100k to 10k and daily series (weather, commodities, index ranges) included. Measured over 3 days, this adds about 240 non-sports markets a day; 1k would add about 800 a day, too many for the page.
 - Price at a horizon: mid of yes bid/ask on the last daily candle ending at least N days before close, or the last trade if the spread is over 10¢.
 
 ## Next steps
