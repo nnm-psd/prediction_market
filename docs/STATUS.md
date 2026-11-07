@@ -7,6 +7,8 @@ Last updated: 2026-11-07. Read this first when resuming.
 Working first version, tested locally. Local git repository, not yet pushed or deployed.
 
 - Page ([index.html](../index.html), [app.js](../app.js), [style.css](../style.css)): filters (price horizon, category, minimum volume), summary tiles, calibration chart and table, scores by horizon and by category, biggest surprises, explanation of every statistic and the method's limits. Basic design on purpose, to be improved later.
+- Added 2026-11-07: accuracy by volume and by quarter; return from buying yes or no in each price group after Kalshi's fee (0.07 × p × (1 − p)), with event-clustered intervals; a weather benchmark ([scripts/weather.py](../scripts/weather.py), data/weather.json); a "How this compares" section (vs. brier.fyi and exchange accuracy pages).
+- Weather benchmark: 7 US cities (NY, Chicago, Miami, Austin, Denver, LA, Philadelphia) at their NWS settlement stations. Model = Open-Meteo forecast high issued the day before + normal error with the city's mean and spread over the previous 90 days (≥ 30 needed, earlier days only). The bracket rule reproduces Kalshi's result on all 42,182 settled temperature markets. Market price is the 1-day read (about midnight local before the day). Tested on synthetic data only, because the backfill hasn't yet stored weather prices.
 - Statistics ([stats.js](../stats.js)) with self-check [test/stats.test.mjs](../test/stats.test.mjs), which passes: Brier, log loss, Wilson intervals, binned calibration, Murphy decomposition, ECE, Spiegelhalter z test, bootstrap that resamples whole events.
 - Data ([scripts/fetch_data.py](../scripts/fetch_data.py)): Kalshi public API, standard library only. The daily workflow [.github/workflows/data.yml](../.github/workflows/data.yml) only runs once the project is pushed to GitHub.
 - Checked in Chromium at 1280 px (light) and 375 px (dark): no console errors, no horizontal page scroll, chart tooltip works.
@@ -30,10 +32,8 @@ Working first version, tested locally. Local git repository, not yet pushed or d
 1. Create the GitHub repository (for example `nnm-psd/prediction_market`), push, turn on Pages (main branch, root), then run the data workflow once by hand (`workflow_dispatch`).
 2. Check the size of `data/markets.json` after the backfill. If it grows past a few MB, drop titles into a separate file or raise `MIN_VOLUME`.
 3. Candidate features (pick before building):
-   - compare against outside forecasts (polls, FedWatch, sportsbook odds)
-   - Polymarket as a second source, to compare exchanges
-   - a favourite–longshot view and a simulated "bet against the bias" profit after fees
-   - calibration over time (has it improved as volume grew?)
+   - Polymarket as a second source, to compare exchanges on the same events
+   - more outside benchmarks: crypto/index range markets vs. a model built from options or realised volatility; economic releases vs. consensus or nowcasts
    - event titles for context in the surprises table
 4. Design pass and quality skills from CLAUDE.md before launch: `frontend-design`, `web-design-guidelines`, `accessibility`, `web-quality-audit`.
 

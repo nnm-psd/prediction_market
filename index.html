@@ -60,9 +60,57 @@
   </section>
 
   <section>
+    <h2>Does more trading mean better prices?</h2>
+    <p class="muted">Markets grouped by contracts traded. Busier markets are also different kinds of questions, so pick a category to compare like with like.</p>
+    <div class="scroll"><table id="volumes"></table></div>
+  </section>
+
+  <section>
+    <h2>Are prices getting better over time?</h2>
+    <p class="muted">By the quarter in which markets closed. Kalshi's volume grew many times over in this period.</p>
+    <div class="scroll"><table id="quarters"></table></div>
+  </section>
+
+  <section>
+    <h2>Could you profit from the gaps?</h2>
+    <p class="muted">Average return on every market in a price group if you had bought at the price shown and held to the end,
+      after Kalshi's fee. A known pattern in betting markets, the favourite–longshot bias, is that long shots win less often than their price says,
+      so buying "no" on them pays. If the interval includes 0%, the result could be luck. Prices are the bid/ask mid: a real buyer pays the ask,
+      a little more, so real returns are lower than shown.</p>
+    <div class="scroll"><table id="profit"></table></div>
+  </section>
+
+  <section>
+    <h2>Market vs. a weather forecast</h2>
+    <p class="muted">An outside check on the market. Kalshi lists daily high-temperature brackets for seven US cities
+      (New York, Chicago, Miami, Austin, Denver, Los Angeles, Philadelphia). For each one we also compute a probability from a weather forecast:
+      the forecast high issued the day before (<a href="https://open-meteo.com/">Open-Meteo</a>), plus how far off that forecast was for the city over the
+      previous 90 days. Both are compared with the official high the market settled on, using the market price at about midnight before the day.
+      These markets are all ≥ 10k contracts; the filters above don't apply here.</p>
+    <section aria-label="Weather summary" class="tiles" id="weather-tiles"></section>
+    <div class="scroll"><table id="weather-cities"></table></div>
+  </section>
+
+  <section>
     <h2>Biggest surprises</h2>
     <p class="muted">Markets with at least 1M contracts traded whose price was furthest from what happened.</p>
     <div class="scroll"><table id="surprises"></table></div>
+  </section>
+
+  <section class="notes">
+    <h2>How this compares</h2>
+    <p><a href="https://brier.fyi">Brier.fyi</a> (formerly Calibration City) is the broadest tracker: Kalshi, Polymarket, Manifold and Metaculus,
+      hundreds of thousands of markets, letter grades, and the same question compared across platforms. Use it to compare platforms.
+      Exchanges also publish their own accuracy figures, such as "95% accurate", which usually count how often the favourite won and leave out cancelled markets.</p>
+    <p>This site covers one exchange and asks a narrower question: how sure can we be?</p>
+    <ul>
+      <li>Every score comes with a 95% interval, and calibration with a significance test, so you can tell a real pattern from luck.</li>
+      <li>Markets in one event are resampled together, so a 20-candidate race doesn't count as 20 independent tests.</li>
+      <li>Skill is measured against simply guessing how often "yes" happens, not just against a coin flip.</li>
+      <li>The same markets are scored at 1, 7 and 30 days, by volume and over time.</li>
+      <li>Returns after fees show whether a gap could actually be traded.</li>
+      <li>An outside benchmark (a weather forecast) checks the market against a probability that doesn't come from traders.</li>
+    </ul>
   </section>
 
   <section class="notes">

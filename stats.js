@@ -64,6 +64,22 @@ export function mulberry32(seed) {
   };
 }
 
+// 95% interval for the mean of v, resampling whole groups (events) rather than single values.
+export function clusterMeanCI(v, groups, reps = 400, seed = 1) {
+  const idx = new Map();
+  groups.forEach((g, i) => { if (!idx.has(g)) idx.set(g, []); idx.get(g).push(i); });
+  const clusters = [...idx.values()], rand = mulberry32(seed), means = [];
+  for (let r = 0; r < reps; r++) {
+    let s = 0, n = 0;
+    for (let c = 0; c < clusters.length; c++) {
+      for (const i of clusters[Math.floor(rand() * clusters.length)]) { s += v[i]; n++; }
+    }
+    means.push(s / n);
+  }
+  means.sort((a, b) => a - b);
+  return [means[Math.floor(0.025 * (reps - 1))], means[Math.floor(0.975 * (reps - 1))]];
+}
+
 // Markets in one event are linked (exactly one candidate wins), so resample whole events, not markets.
 // Returns 95% intervals for the Brier score and the Brier skill score against always forecasting the base rate.
 export function clusterBootstrap(p, y, groups, reps = 400, seed = 1) {

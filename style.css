@@ -62,3 +62,4 @@ td.title { text-align: left; min-width: 16rem; }
 .notes dt { font-weight: 600; margin-top: 0.75rem; }
 .notes dd { margin: 0.2rem 0 0; color: var(--ink-2); }
 .notes li { margin-bottom: 0.4rem; }
+.tiles + .scroll { margin-top: 1rem; }

@@ -1,4 +1,7 @@
-import { brier, logLoss, mean, calibration, decompose, spiegelhalter, clusterBootstrap } from "./stats.js";
+import { brier, logLoss, mean, calibration, decompose, spiegelhalter, clusterBootstrap, clusterMeanCI } from "./stats.js";
+
+// Kalshi's taker fee per contract: 0.07 × price × (1 − price), before rounding up to the cent per order.
+const fee = (p) => 0.07 * p * (1 - p);
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -40,7 +43,7 @@ function render() {
   const h = +$("horizon").value, rs = pick(selected(), h), s = summary(rs, h);
   if (!s) {
     $("tiles").innerHTML = `<p>Fewer than 20 markets match. Widen the filters.</p>`;
-    ["cal", "horizons", "cats", "surprises"].forEach((id) => ($(id).innerHTML = ""));
+    ["cal", "horizons", "cats", "surprises", "volumes", "quarters", "profit"].forEach((id) => ($(id).innerHTML = ""));
     $("chart").innerHTML = "";
     return;
   }
@@ -66,6 +69,37 @@ function render() {
     all.length < 20 ? [] : data.horizons.map((x) => {
       const t = summary(all, x);
       return [td(`${x} day${x > 1 ? "s" : ""} before`), td(t.n.toLocaleString()), td(f3(t.brier)), td(t.skill.toFixed(2)), td(`${(t.ece * 100).toFixed(1)} pts`)];
+    }));
+
+  const scoreHead = ["Markets", "Resolved yes", "Brier", "Skill", "Calibration error"];
+  const scoreCells = (t) => [td(t.n.toLocaleString()), td(pct(t.base, 1)), td(f3(t.brier)), td(t.skill.toFixed(2)), td(`${(t.ece * 100).toFixed(1)} pts`)];
+  const groups = (key, label) => {
+    const m = new Map();
+    rs.forEach((r) => { const k = key(r); if (!m.has(k)) m.set(k, []); m.get(k).push(r); });
+    return [...m].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([k, g]) => [label(k), summary(g, h)]).filter(([, t]) => t)
+      .map(([l, t]) => [td(l), ...scoreCells(t)]);
+  };
+  const VOL = [1e4, 1e5, 1e6, 1e7];
+  const volName = ["10k–100k", "100k–1M", "1M–10M", "10M+"];
+  table($("volumes"), ["Contracts traded", ...scoreHead],
+    groups((r) => VOL.filter((v) => r[col.volume] >= v).length - 1, (k) => volName[k]));
+  table($("quarters"), ["Closed in", ...scoreHead],
+    groups((r) => `${r[col.close].slice(0, 4)} Q${Math.ceil(+r[col.close].slice(5, 7) / 3)}`, (k) => k));
+
+  // Buying at the read price and holding to settlement, after the fee. Profit per contract, as a share of the cost.
+  const ev = rs.map((r) => r[col.event]);
+  table($("profit"), ["Price", "Markets", "Buy yes: return", "95% interval", "Buy no: return", "95% interval"],
+    cal.filter((b) => b.n >= 20).map((b) => {
+      const idx = rs.map((r, i) => i).filter((i) => Math.min(9, Math.floor(s.p[i] * 10)) === Math.round(b.lo * 10));
+      const ret = (side) => idx.map((i) => {
+        const cost = (side ? s.p[i] : 1 - s.p[i]) + fee(s.p[i]);
+        return ((side ? s.y[i] : 1 - s.y[i]) - cost) / cost;
+      });
+      const cell = (v) => {
+        const [lo, hi] = clusterMeanCI(v, idx.map((i) => ev[i]), 200);
+        return [td(`${mean(v) >= 0 ? "+" : ""}${pct(mean(v), 1)}`), td(`${pct(lo, 0)} to ${pct(hi, 0)}`)];
+      };
+      return [td(`${pct(b.lo)}–${pct(b.hi)}`), td(b.n.toLocaleString()), ...cell(ret(true)), ...cell(ret(false))];
     }));
 
   const vol = +$("volume").value;
@@ -111,5 +145,41 @@ function drawChart(cal) {
   });
 }
 
+// Outside benchmark: the same temperature markets priced by a weather forecast. Not affected by the filters.
+async function renderWeather() {
+  const w = await fetch("data/weather.json").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const wc = w && Object.fromEntries(w.columns.map((c, i) => [c, i]));
+  const all = w ? w.rows : [];
+  if (all.length < 20) {
+    $("weather-tiles").innerHTML = "<p>Not enough temperature markets with prices yet.</p>";
+    return;
+  }
+  const score = (rs) => {
+    const y = rs.map((r) => r[wc.yes]), mk = rs.map((r) => r[wc.market]), md = rs.map((r) => r[wc.model]);
+    const avg = mk.map((x, i) => (x + md[i]) / 2), base = mean(y), unc = base * (1 - base);
+    return [["Market price", mk], ["Weather model", md], ["Average of both", avg]].map(([l, p]) => {
+      const b = brier(p, y);
+      return { l, b, skill: 1 - b / unc, ece: decompose(p, y).ece };
+    });
+  };
+  const ev = all.map((r) => r[wc.event]);
+  const diff = all.map((r) => (r[wc.model] - r[wc.yes]) ** 2 - (r[wc.market] - r[wc.yes]) ** 2);
+  const [lo, hi] = clusterMeanCI(diff, ev), d = mean(diff);
+  const winner = lo > 0 ? "the market is more accurate" : hi < 0 ? "the weather model is more accurate" : "no clear winner";
+  const days = new Set(all.map((r) => r[wc.city] + r[wc.date])).size;
+  $("weather-tiles").innerHTML = [
+    [all.length.toLocaleString(), `temperature markets over ${days.toLocaleString()} city-days`],
+    ...score(all).map((t) => [f3(t.b), `Brier: ${t.l.toLowerCase()}`]),
+    [`${d >= 0 ? "+" : ""}${f3(d)}`, `model minus market Brier (95%: ${f3(lo)} to ${f3(hi)}): ${winner}`],
+  ].map(([v, l]) => `<div class="tile"><b>${v}</b><span>${l}</span></div>`).join("");
+  const cities = [...new Set(all.map((r) => r[wc.city]))].sort();
+  table($("weather-cities"), ["City", "Markets", "Market Brier", "Model Brier", "Average Brier", "Market skill", "Model skill"],
+    cities.map((c) => [c, all.filter((r) => r[wc.city] === c)]).filter(([, rs]) => rs.length >= 20).map(([c, rs]) => {
+      const [m, md, av] = score(rs);
+      return [td(esc(c)), td(rs.length.toLocaleString()), td(f3(m.b)), td(f3(md.b)), td(f3(av.b)), td(m.skill.toFixed(2)), td(md.skill.toFixed(2))];
+    }));
+}
+
 ["horizon", "category", "volume"].forEach((id) => $(id).addEventListener("change", render));
 render();
+renderWeather();

@@ -1,6 +1,6 @@
 // Run: uvx --from nodejs-wheel node test/stats.test.mjs
 import assert from "node:assert/strict";
-import { brier, wilson, calibration, decompose, spiegelhalter, normCdf, mulberry32, clusterBootstrap } from "../stats.js";
+import { brier, wilson, calibration, decompose, spiegelhalter, normCdf, mulberry32, clusterBootstrap, clusterMeanCI } from "../stats.js";
 
 const close = (a, b, tol = 1e-3) => assert.ok(Math.abs(a - b) < tol, `${a} vs ${b}`);
 
@@ -25,5 +25,14 @@ assert.ok(decompose(over, y).ece > 0.08);
 
 const ci = clusterBootstrap(p, y, g, 200);
 assert.ok(ci.brier[0] < brier(p, y) && brier(p, y) < ci.brier[1]);
+
+// Profit of buying YES at a calibrated price is zero on average: the interval must cover 0.
+const profit = p.map((pi, i) => y[i] - pi);
+const [plo, phi] = clusterMeanCI(profit, g);
+assert.ok(plo < 0 && 0 < phi, `${plo} ${phi}`);
+// Linked groups widen the interval: four identical copies of each value per group.
+const g4 = p.map((_, i) => i), dup = profit.flatMap((x) => [x, x, x, x]), gd = g4.flatMap((x) => [x, x, x, x]);
+const [a, b] = clusterMeanCI(dup.slice(0, 20000), gd.slice(0, 20000)), [c, d2] = clusterMeanCI(dup.slice(0, 20000), dup.slice(0, 20000).map((_, i) => i));
+assert.ok(b - a > 1.5 * (d2 - c), "clustered interval should be wider");
 
 console.log("stats ok");
