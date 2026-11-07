@@ -17,6 +17,7 @@ from pathlib import Path
 
 API = "https://api.elections.kalshi.com/trade-api/v2"
 OUT = Path(__file__).resolve().parent.parent / "data" / "markets.json"
+CACHE = Path(__file__).resolve().parent.parent / ".backfill" / "series.jsonl"  # backfill progress, git-ignored
 HORIZONS = [1, 7, 30]  # days before close at which the price is read
 MIN_VOLUME = 10_000  # contracts traded; thinner markets are mostly noise
 SPORTS_MIN_VOLUME = 100_000
@@ -116,6 +117,16 @@ def series_of(m):
     return m["event_ticker"].split("-")[0]
 
 
+def save(old_rows, new_rows):
+    rows = sorted(old_rows + new_rows, key=lambda r: (r[3], r[0]))
+    OUT.parent.mkdir(exist_ok=True)
+    OUT.write_text(json.dumps({"updated": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "source": "Kalshi",
+                               "horizons": HORIZONS, "min_volume": MIN_VOLUME, "sports_min_volume": SPORTS_MIN_VOLUME, "sports_sample": SPORTS_SAMPLE,
+                               "columns": COLUMNS, "rows": rows}, separators=(",", ":"), ensure_ascii=False),
+                   encoding="utf8")
+    return len(rows)
+
+
 def main():
     global CATEGORY, KEEP
     backfill = "--backfill" in sys.argv
@@ -133,20 +144,34 @@ def main():
     print(f"recent: {len(todo)} new markets", flush=True)
     if backfill:
         # Per series: the live API holds markets settled after Kalshi's historical cutoff, /historical the rest.
+        # Each finished series is appended to CACHE, so an interrupted backfill resumes where it stopped.
         start = int(ts(START + "T00:00:00Z"))
+        done = set()
+        if CACHE.exists():
+            for line in CACHE.read_text(encoding="utf8").splitlines():
+                c = json.loads(line)
+                done.add(c["series"])
+                todo += [(m, c["series"], h) for m, h in c["markets"] if m["ticker"] not in known]
         def scan(s):
             q = f"series_ticker={s}&min_close_ts={start}"
             try:
                 live = [(m, s, False) for m in pages(f"/markets?status=settled&{q}", "markets")]
-                return live + [(m, s, True) for m in pages(f"/historical/markets?{q}", "markets")]
-            except RuntimeError as e:  # a later backfill picks the series up again
+                return s, live + [(m, s, True) for m in pages(f"/historical/markets?{q}", "markets")]
+            except RuntimeError as e:  # not cached, so the next backfill retries the series
                 print(f"  skipped {s}: {e}", flush=True)
-                return []
-        with ThreadPoolExecutor(4) as ex:
-            for i, ms in enumerate(ex.map(scan, sorted(KEEP))):
-                todo += [t for t in ms if t[0]["ticker"] not in known and qualifies(t[0], t[1])]
-                if i % 1000 == 999:
-                    print(f"  series {i + 1}/{len(KEEP)}: {len(todo)} markets", flush=True)
+                return s, None
+        left = sorted(KEEP - done)
+        CACHE.parent.mkdir(exist_ok=True)
+        with ThreadPoolExecutor(4) as ex, CACHE.open("a", encoding="utf8") as cache:
+            for i, (s, ms) in enumerate(ex.map(scan, left)):
+                if ms is None:
+                    continue
+                ok = [(m, h) for m, _, h in ms if qualifies(m, s)]
+                cache.write(json.dumps({"series": s, "markets": ok}) + "\n")
+                cache.flush()
+                todo += [(m, s, h) for m, h in ok if m["ticker"] not in known]
+                if i % 100 == 99:
+                    print(f"  series {len(done) + i + 1}/{len(KEEP)}: {len(todo)} markets", flush=True)
         print(f"with history: {len(todo)} new markets", flush=True)
 
     seen, rows = set(), []
@@ -155,15 +180,14 @@ def main():
         for i, r in enumerate(ex.map(safe_row, todo)):
             if r:
                 rows.append(r)
-            if i % 1000 == 999:
+            if i % 200 == 199:
                 print(f"  candles {i + 1}/{len(todo)}", flush=True)
-    rows = sorted(old["rows"] + rows, key=lambda r: (r[3], r[0]))
-    OUT.parent.mkdir(exist_ok=True)
-    OUT.write_text(json.dumps({"updated": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "source": "Kalshi",
-                               "horizons": HORIZONS, "min_volume": MIN_VOLUME, "sports_min_volume": SPORTS_MIN_VOLUME, "sports_sample": SPORTS_SAMPLE,
-                               "columns": COLUMNS, "rows": rows}, separators=(",", ":"), ensure_ascii=False),
-                   encoding="utf8")
-    print(f"wrote {len(rows)} markets to {OUT}")
+            if i % 2000 == 1999:  # save as we go; a rerun skips stored markets
+                save(old["rows"], rows)
+    n = save(old["rows"], rows)
+    if backfill:
+        CACHE.unlink(missing_ok=True)
+    print(f"wrote {n} markets to {OUT}")
 
 
 if __name__ == "__main__":

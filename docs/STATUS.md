@@ -18,6 +18,7 @@ Working first version, tested locally. Local git repository, not yet pushed or d
   - Download: links to the three JSON files and a CSV built in the browser.
   - Buttons use #2468b8 (5.6:1 with white); the series blue was below 4.5:1.
 - Economic releases vs. consensus: not built; consensus forecasts aren't freely available.
+- 2026-11-07 evening: the first full backfill died with the previous session after about 7,000 of 15,782 series, with nothing saved (it only wrote at the end). The backfill is now resumable: each scanned series is appended to `.backfill/series.jsonl` (git-ignored) and `data/markets.json` is saved every 2,000 priced markets, so rerunning `--backfill` continues where it stopped. Tested by crashing a 3-series run during pricing and resuming: no series re-scanned, all rows written, cache removed. The backfill now runs as a detached process logging to `.backfill/backfill.log`; `.backfill/progress.html` shows it live (`python -m http.server 8790 --directory .backfill`).
 - Statistics ([stats.js](../stats.js)) with self-check [test/stats.test.mjs](../test/stats.test.mjs), which passes: Brier, log loss, Wilson intervals, binned calibration, Murphy decomposition, ECE, Spiegelhalter z test, bootstrap that resamples whole events.
 - Data ([scripts/fetch_data.py](../scripts/fetch_data.py)): Kalshi public API, standard library only. The daily workflow [.github/workflows/data.yml](../.github/workflows/data.yml) only runs once the project is pushed to GitHub.
 - Checked in Chromium at 1280 px (light) and 375 px (dark): no console errors, no horizontal page scroll, chart tooltip works.
@@ -62,7 +63,7 @@ cd D:\Code_Projects\prediction_market
 uvx --from nodejs-wheel node test/stats.test.mjs    # statistics check (no Node install needed)
 python -m http.server 8000                           # view at http://localhost:8000
 python scripts/fetch_data.py                         # add newly settled markets
-python scripts/fetch_data.py --backfill              # full history back to START (slow)
+python scripts/fetch_data.py --backfill              # full history back to START (slow; resumable, just rerun)
 ```
 
 Record changes in this file in the same commit.
