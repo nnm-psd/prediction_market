@@ -1,1 +1,1 @@
-{"columns":["ticker","event","underlying","date","yes","market","model","spot","settled"],"rows":[]}
+{"columns":["ticker","event","underlying","date","yes","market","model","spot","settled"],"rows":[["KXINX-26NOV16H1600-B7437","KXINX-26NOV16H1600","S&P 500","2026-11-16",0,0.17,0.0301,7561.67,7416.59]]}
